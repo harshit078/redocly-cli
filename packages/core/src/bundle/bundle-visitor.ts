@@ -16,6 +16,7 @@ import { reportUnresolvedRef } from '../rules/common/no-unresolved-refs.js';
 import { type OasRef, type Oas3Discriminator, type Oas3Example } from '../typings/openapi.js';
 import { componentNameFromTitle } from '../utils/component-name-from-title.js';
 import { dequal } from '../utils/dequal.js';
+import { effectiveRefTarget } from '../utils/effective-ref-target.js';
 import { makeRefId } from '../utils/make-ref-id.js';
 import { type Oas3Visitor, type Oas2Visitor } from '../visitors.js';
 import { type UserContext, type ResolveResult, type NonUndefined, type Problem } from '../walk.js';
@@ -138,10 +139,6 @@ export function makeBundleVisitor({
   let components: Record<string, ComponentsGroup>;
   let rootLocation: Location;
 
-  // a composed $ref in the chain is the effective target, so the composition survives bundling
-  const effectiveTarget = (resolved: ResolveResult<NonUndefined>): ComponentTarget =>
-    resolved.chain?.[0] ?? { node: resolved.node, location: resolved.location! };
-
   const firstSchemaLocationByName = new Map<string, Location>();
 
   const schemaComponentType = mapTypeToComponent('Schema', version)!;
@@ -154,7 +151,7 @@ export function makeBundleVisitor({
           return;
         }
 
-        const target = effectiveTarget(resolved);
+        const target = effectiveRefTarget(resolved);
 
         if (
           target.location.source === rootDocument.source &&
@@ -247,7 +244,7 @@ export function makeBundleVisitor({
 
         discriminator.defaultMapping = saveComponent(
           schemaComponentType,
-          effectiveTarget(resolved),
+          effectiveRefTarget(resolved),
           ctx
         );
       },
@@ -264,7 +261,7 @@ export function makeBundleVisitor({
               return;
             }
 
-            mapping[name] = saveComponent(schemaComponentType, effectiveTarget(resolved), ctx);
+            mapping[name] = saveComponent(schemaComponentType, effectiveRefTarget(resolved), ctx);
           }
         },
       },
@@ -309,7 +306,7 @@ export function makeBundleVisitor({
   function isEqualOrEqualRef(node: unknown, target: ComponentTarget, ctx: UserContext) {
     if (isRef(node)) {
       const resolved = ctx.resolve(node, rootLocation.absolutePointer);
-      const effectiveLocation = resolved.location && effectiveTarget(resolved).location;
+      const effectiveLocation = resolved.location && effectiveRefTarget(resolved).location;
       if (effectiveLocation?.absolutePointer === target.location.absolutePointer) {
         return true;
       }

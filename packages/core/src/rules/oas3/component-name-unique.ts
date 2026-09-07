@@ -11,6 +11,7 @@ import type {
   OasRef,
 } from '../../typings/openapi.js';
 import { componentNameFromTitle } from '../../utils/component-name-from-title.js';
+import { effectiveRefTarget } from '../../utils/effective-ref-target.js';
 import { isSupportedExtension } from '../../utils/is-supported-extension.js';
 import type { Oas2Rule, Oas3Rule, Oas3Visitor } from '../../visitors.js';
 import type { Problem, UserContext } from '../../walk.js';
@@ -59,21 +60,15 @@ export const ComponentNameUnique: Oas3Rule | Oas2Rule = (options) => {
           const resolvedRef = resolve(ref);
           if (!resolvedRef.location) return;
 
-          if (usesTitleStrategy(typeName, location, resolvedRef.location)) {
-            const { title, name } = componentNameFromTitle(resolvedRef.node);
+          const target = effectiveRefTarget(resolvedRef);
+
+          if (usesTitleStrategy(typeName, target.location, location)) {
+            const { title, name } = componentNameFromTitle(target.node);
             if (title) {
-              addFoundComponent(
-                typeName,
-                name,
-                resolvedRef.location,
-                resolvedRef.location.child('title')
-              );
+              addFoundComponent(typeName, name, target.location, target.location.child('title'));
               return;
             }
-            schemasWithoutTitle.set(
-              resolvedRef.location.absolutePointer.toString(),
-              resolvedRef.location
-            );
+            schemasWithoutTitle.set(target.location.absolutePointer.toString(), target.location);
           }
 
           addComponentFromAbsoluteLocation(typeName, resolvedRef.location);
@@ -126,7 +121,11 @@ export const ComponentNameUnique: Oas3Rule | Oas2Rule = (options) => {
 
   if (options.schemas != 'off') {
     rule.NamedSchemas = {
-      Schema(_: Oas3Schema | Oas3_1Schema, { location }: UserContext) {
+      Schema(_: Oas3Schema | Oas3_1Schema, { location, key, parentLocations }: UserContext) {
+        if (usesTitleStrategy(TYPE_NAME_SCHEMA, location)) {
+          addFoundComponent(TYPE_NAME_SCHEMA, String(key), parentLocations.NamedSchemas.child(key));
+          return;
+        }
         addComponentFromAbsoluteLocation(TYPE_NAME_SCHEMA, location);
       },
     };
@@ -188,14 +187,14 @@ export const ComponentNameUnique: Oas3Rule | Oas2Rule = (options) => {
 
   function usesTitleStrategy(
     typeName: string,
-    refLocation: Location,
-    targetLocation: Location
+    targetLocation: Location,
+    refLocation: Location = targetLocation
   ): boolean {
     return (
       useTitleStrategy &&
       typeName === TYPE_NAME_SCHEMA &&
-      (refLocation.source.absoluteRef !== rootSourceRef ||
-        targetLocation.source.absoluteRef !== rootSourceRef)
+      (targetLocation.source.absoluteRef !== rootSourceRef ||
+        refLocation.source.absoluteRef !== rootSourceRef)
     );
   }
 };
