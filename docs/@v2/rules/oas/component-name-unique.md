@@ -54,8 +54,7 @@ rules:
 
 ### Component names strategy
 
-The rule predicts the component names that `bundle` produces, so `strategy` must match the
-[`--component-names-strategy`](../../commands/bundle.md#configure-the-component-names-strategy) option you bundle with.
+The rule predicts the component names that `bundle` produces, so `strategy` must match the [`--component-names-strategy`](../../commands/bundle.md#configure-the-component-names-strategy) option you bundle with.
 
 With the default `basename`, a schema pulled in from another file is named after the `$ref` fragment or the file name.
 Two files both called `Order.yaml` therefore collide, and the rule reports them.
